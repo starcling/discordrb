@@ -67,6 +67,10 @@ module Discordrb
     # @return [Gateway] the underlying {Gateway} object.
     attr_reader :gateway
 
+    # The number of seconds to wait for unavailable servers since READY
+    # @return [Integer]
+    attr_reader :dispatch_timeout
+
     include EventContainer
     include Cache
 
@@ -113,7 +117,7 @@ module Discordrb
     def initialize(
       log_mode: :normal,
       token: nil, client_id: nil,
-      type: nil, name: '', fancy_log: false, suppress_ready: false, parse_self: false,
+      type: nil, name: '', fancy_log: false, dispatch_timeout: 10, suppress_ready: false, parse_self: false,
       shard_id: nil, num_shards: nil, redact_token: true, ignore_bots: false,
       compress_mode: :large, intents: :all
     )
@@ -130,6 +134,7 @@ module Discordrb
       @shard_key = num_shards ? [shard_id, num_shards] : nil
 
       LOGGER.fancy = fancy_log
+      @dispatch_timeout = dispatch_timeout
       @prevent_ready = suppress_ready
 
       @compress_mode = compress_mode
@@ -1218,8 +1223,8 @@ module Discordrb
     end
 
     def handle_dispatch(type, data)
-      # Check whether there are still unavailable servers and there have been more than 10 seconds since READY
-      if @unavailable_servers&.positive? && (Time.now - @unavailable_timeout_time) > 10 && !((@intents || 0) & INTENTS[:servers]).zero?
+      # Check whether there are still unavailable servers and there have been more than dispatch_timeout seconds since READY
+      if @unavailable_servers&.positive? && (Time.now - @unavailable_timeout_time) > dispatch_timeout && !((@intents || 0) & INTENTS[:servers]).zero?
         # The server streaming timed out!
         LOGGER.debug("Server streaming timed out with #{@unavailable_servers} servers remaining")
         LOGGER.debug('Calling ready now because server loading is taking a long time. Servers may be unavailable due to an outage, or your bot is on very large servers.')
